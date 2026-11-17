@@ -6,7 +6,6 @@ used throughout the bot. All network calls are logged via loguru.
 
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -15,6 +14,8 @@ import betfairlightweight
 from betfairlightweight import APIClient
 from betfairlightweight.filters import market_filter, time_range
 from loguru import logger
+
+from src.constants import CERT_FILENAME, KEY_FILENAME
 
 
 class BetfairClient:
@@ -51,8 +52,8 @@ class BetfairClient:
             FileNotFoundError: If the certificate files are missing.
             betfairlightweight.exceptions.APIError: If authentication fails.
         """
-        crt = self._cert_path / "client-2048.crt"
-        key = self._cert_path / "client-2048.key"
+        crt = self._cert_path / CERT_FILENAME
+        key = self._cert_path / KEY_FILENAME
 
         for path in (crt, key):
             if not path.exists():
@@ -63,13 +64,16 @@ class BetfairClient:
 
         logger.info("Authenticating with Betfair API (cert login)...")
 
-        self._client = betfairlightweight.APIClient(
+        # Only keep the client once login has succeeded, so a failed attempt
+        # never leaves an unauthenticated client reachable via ``.client``.
+        client = betfairlightweight.APIClient(
             username=self._username,
             password=self._password,
             app_key=self._app_key,
             certs=str(self._cert_path),
         )
-        self._client.login()
+        client.login()
+        self._client = client
         logger.info("Betfair authentication successful. session_token acquired.")
 
     def logout(self) -> None:
@@ -96,9 +100,7 @@ class BetfairClient:
 
     def is_authenticated(self) -> bool:
         """Return True if a session token is held."""
-        return self._client is not None and bool(
-            getattr(self._client.session_token, "__class__", None)
-        )
+        return self._client is not None and bool(self._client.session_token)
 
     # ------------------------------------------------------------------
     # Market listing
@@ -125,7 +127,7 @@ class BetfairClient:
                 market_type_codes=["WIN"],
                 market_start_time=time_range(from_=now.isoformat()),
             ),
-            market_projection=["MARKET_START_TIME", "RUNNER_DESCRIPTION", "EVENT", "COMPETITION"],
+            market_projection=["MARKET_START_TIME", "RUNNER_DESCRIPTION", "EVENT"],
             sort="FIRST_TO_START",
             max_results=max_results,
             locale="en",

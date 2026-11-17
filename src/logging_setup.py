@@ -1,9 +1,29 @@
 """Loguru logging configuration — file + console with rotation."""
 
+import inspect
+import logging
 import sys
 from pathlib import Path
 
 from loguru import logger
+
+
+class InterceptHandler(logging.Handler):
+    """Route stdlib ``logging`` records (flumine, betfairlightweight) into loguru."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            level: str | int = logger.level(record.levelname).name
+        except ValueError:
+            level = record.levelno
+
+        # Walk back past the logging module so loguru reports the real caller
+        frame, depth = inspect.currentframe(), 0
+        while frame and (depth == 0 or frame.f_code.co_filename == logging.__file__):
+            frame = frame.f_back
+            depth += 1
+
+        logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
 
 
 def setup_logging(log_dir: str = "logs", log_level: str = "INFO") -> None:
@@ -44,5 +64,8 @@ def setup_logging(log_dir: str = "logs", log_level: str = "INFO") -> None:
         compression="gz",
         enqueue=True,           # async, thread-safe
     )
+
+    # Third-party libraries log via stdlib logging; forward them to the sinks above
+    logging.basicConfig(handlers=[InterceptHandler()], level=log_level, force=True)
 
     logger.info("Logging initialised — level={}, dir={}", log_level, log_dir)

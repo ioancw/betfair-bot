@@ -1,8 +1,52 @@
 """Tests for configuration loading."""
 
-import os
 import importlib
+
 import pytest
+
+REQUIRED_VARS = ["BETFAIR_USERNAME", "BETFAIR_PASSWORD", "BETFAIR_APP_KEY", "CERT_PATH"]
+
+
+@pytest.fixture(autouse=True)
+def restore_config_module():
+    """Reload src.config after each test so reloads here don't leak elsewhere."""
+    yield
+    import src.config as config_module
+    try:
+        importlib.reload(config_module)
+    except EnvironmentError:
+        pass
+
+
+@pytest.mark.parametrize("missing", REQUIRED_VARS)
+def test_config_fails_when_required_var_missing(monkeypatch, missing):
+    """Importing config raises a clear error naming the missing variable."""
+    import src.config as config_module
+
+    # Stop load_dotenv() re-populating the variable from a local .env file
+    monkeypatch.setattr("dotenv.load_dotenv", lambda *a, **k: False)
+    for name in REQUIRED_VARS:
+        monkeypatch.setenv(name, "value")
+    monkeypatch.delenv(missing)
+
+    with pytest.raises(EnvironmentError, match=missing):
+        importlib.reload(config_module)
+
+
+def test_optional_logging_vars_have_defaults(monkeypatch):
+    """LOG_LEVEL and LOG_DIR fall back to defaults when unset."""
+    import src.config as config_module
+
+    monkeypatch.setattr("dotenv.load_dotenv", lambda *a, **k: False)
+    for name in REQUIRED_VARS:
+        monkeypatch.setenv(name, "value")
+    monkeypatch.delenv("LOG_LEVEL", raising=False)
+    monkeypatch.delenv("LOG_DIR", raising=False)
+
+    importlib.reload(config_module)
+
+    assert config_module.Config.LOG_LEVEL == "INFO"
+    assert config_module.Config.LOG_DIR == "logs"
 
 
 def test_config_loads_from_env(monkeypatch, tmp_path):

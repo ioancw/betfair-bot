@@ -5,6 +5,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from src.constants import CERT_FILENAME, KEY_FILENAME
+
 load_dotenv()
 
 
@@ -30,9 +32,9 @@ class Config:
     @classmethod
     def cert_crt(cls) -> str:
         """Full path to the SSL certificate file."""
-        return str(Path(cls.CERT_PATH) / "client-2048.crt")
+        return str(Path(cls.CERT_PATH) / CERT_FILENAME)
 
     @classmethod
     def cert_key(cls) -> str:
         """Full path to the SSL private key file."""
-        return str(Path(cls.CERT_PATH) / "client-2048.key")
+        return str(Path(cls.CERT_PATH) / KEY_FILENAME)

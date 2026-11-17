@@ -11,8 +11,7 @@ connection is required. They verify:
 
 import pytest
 from datetime import datetime, timezone
-from pathlib import Path
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 
 class TestBetfairClientAuth:
@@ -80,6 +79,43 @@ class TestBetfairClientAuth:
         mock_api_client.logout()
 
         mock_inner.logout.assert_called_once()
+        assert mock_api_client._client is None
+
+    def test_failed_login_leaves_client_unauthenticated(self, mock_api_client):
+        """If APIClient.login() raises, no client is retained."""
+        with patch("src.betfair_client.betfairlightweight.APIClient") as MockAPIClient:
+            MockAPIClient.return_value.login.side_effect = RuntimeError("bad creds")
+
+            with pytest.raises(RuntimeError, match="bad creds"):
+                mock_api_client.login()
+
+        assert mock_api_client._client is None
+        assert not mock_api_client.is_authenticated()
+        with pytest.raises(RuntimeError, match="Not authenticated"):
+            _ = mock_api_client.client
+
+    def test_is_authenticated_false_before_login(self, mock_api_client):
+        """is_authenticated() is False when login() has not been called."""
+        assert mock_api_client.is_authenticated() is False
+
+    def test_is_authenticated_false_without_session_token(self, mock_api_client):
+        """is_authenticated() is False when the client holds no session token."""
+        mock_api_client._client = MagicMock(session_token=None)
+        assert mock_api_client.is_authenticated() is False
+
+    def test_is_authenticated_true_with_session_token(self, mock_api_client):
+        """is_authenticated() is True once a session token is held."""
+        mock_api_client._client = MagicMock(session_token="abc123")
+        assert mock_api_client.is_authenticated() is True
+
+    def test_logout_swallows_errors_and_clears_client(self, mock_api_client):
+        """A failing APIClient.logout() is ignored and state is still cleared."""
+        mock_inner = MagicMock()
+        mock_inner.logout.side_effect = RuntimeError("network down")
+        mock_api_client._client = mock_inner
+
+        mock_api_client.logout()
+
         assert mock_api_client._client is None
 
     def test_context_manager_calls_login_logout(self, mock_api_client):
@@ -153,15 +189,41 @@ class TestMarketListing:
         assert isinstance(market["start_time"], datetime)
 
     def test_passes_correct_filter_to_api(self, mock_api_client):
-        """list_uk_horse_racing_markets() passes max_results to the API call."""
+        """The API call is restricted to upcoming GB horse racing WIN markets."""
         mock_inner = MagicMock()
         mock_api_client._client = mock_inner
         mock_inner.betting.list_market_catalogue.return_value = []
 
+        before = datetime.now(tz=timezone.utc)
         mock_api_client.list_uk_horse_racing_markets(max_results=10)
+        after = datetime.now(tz=timezone.utc)
 
         call_kwargs = mock_inner.betting.list_market_catalogue.call_args.kwargs
         assert call_kwargs["max_results"] == 10
+        assert call_kwargs["sort"] == "FIRST_TO_START"
+        assert "MARKET_START_TIME" in call_kwargs["market_projection"]
+        assert "EVENT" in call_kwargs["market_projection"]
+
+        api_filter = call_kwargs["filter"]
+        assert api_filter["eventTypeIds"] == ["7"]
+        assert api_filter["marketCountries"] == ["GB"]
+        assert api_filter["marketTypeCodes"] == ["WIN"]
+        start_from = datetime.fromisoformat(api_filter["marketStartTime"]["from"])
+        assert before <= start_from <= after
+        assert api_filter["marketStartTime"].get("to") is None
+
+    def test_missing_event_falls_back_to_defaults(self, mock_api_client):
+        """A catalogue entry without event data yields venue=None, country GB."""
+        mock_inner = MagicMock()
+        mock_api_client._client = mock_inner
+        item = self._make_market_catalogue_item()
+        item.event = None
+        mock_inner.betting.list_market_catalogue.return_value = [item]
+
+        result = mock_api_client.list_uk_horse_racing_markets()
+
+        assert result[0]["venue"] is None
+        assert result[0]["country_code"] == "GB"
 
     def test_empty_response_returns_empty_list(self, mock_api_client):
         """Empty API response yields an empty list without error."""

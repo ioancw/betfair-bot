@@ -1,10 +1,9 @@
 """Shared pytest fixtures for the Betfair bot test suite."""
 
-import os
 import sys
-import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+
+import pytest
 
 # Ensure src/ is importable without installing the package
 sys.path.insert(0, str(Path(__file__).parent.parent))
