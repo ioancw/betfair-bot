@@ -224,6 +224,27 @@ class TestSimulatedTrading:
         result = run_backtest([sample_race], config)
         assert len(result.trades) == 1
 
+    def test_other_market_types_are_not_traded(self, sample_race):
+        result = run_backtest([sample_race], MomentumConfig(market_types=("PLACE",)))
+        assert result.trades == []
+
+    def test_other_countries_are_not_traded(self, sample_race):
+        result = run_backtest([sample_race], MomentumConfig(country_codes=("IE",)))
+        assert result.trades == []
+
+    def test_market_filters_can_be_disabled(self, sample_race):
+        config = MomentumConfig(market_types=(), country_codes=())
+        assert len(run_backtest([sample_race], config).trades) == 2
+
+    def test_bz2_files_as_sold_by_betfair_are_readable(self, sample_race, tmp_path):
+        import bz2
+        from pathlib import Path
+
+        compressed = tmp_path / "1.200000001.bz2"
+        compressed.write_bytes(bz2.compress(Path(sample_race).read_bytes()))
+
+        assert len(run_backtest([str(compressed)]).trades) == 2
+
     def test_state_is_cleared_when_market_closes(self, sample_race):
         strategy = MomentumStrategy()
         strategy._windows[("1.200000001", 101)] = PriceWindow(10)

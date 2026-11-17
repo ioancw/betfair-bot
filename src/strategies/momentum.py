@@ -61,6 +61,10 @@ class MomentumConfig:
         max_open_positions: Positions allowed at once in one market.
         trade_steamers / trade_drifters: Which directions to trade.
         min_order_size: Smallest order the exchange accepts.
+        market_types / country_codes: Only trade these markets. The live
+            stream is already filtered, but bought historical data can
+            include place markets and other countries. An empty tuple
+            disables the check.
     """
 
     stake: float = 2.0
@@ -82,6 +86,8 @@ class MomentumConfig:
     trade_steamers: bool = True
     trade_drifters: bool = True
     min_order_size: float = 1.0
+    market_types: tuple[str, ...] = ("WIN",)
+    country_codes: tuple[str, ...] = ("GB",)
 
     def __post_init__(self) -> None:
         if self.stake < self.min_order_size:
@@ -162,7 +168,14 @@ class MomentumStrategy(BaseStrategy):
     # ------------------------------------------------------------------
 
     def check_market_book(self, market: Any, market_book: Any) -> bool:
-        return market_book.status == "OPEN" and not market_book.inplay
+        if market_book.status != "OPEN" or market_book.inplay:
+            return False
+        definition = market_book.market_definition
+        if self.cfg.market_types and definition.market_type not in self.cfg.market_types:
+            return False
+        if self.cfg.country_codes and definition.country_code not in self.cfg.country_codes:
+            return False
+        return True
 
     def process_market_book(self, market: Any, market_book: Any) -> None:
         now = market_book.publish_time_epoch / 1000.0

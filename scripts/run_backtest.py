@@ -34,6 +34,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--target-ticks", type=int, default=defaults.target_ticks)
     parser.add_argument("--stop-ticks", type=int, default=defaults.stop_ticks)
     parser.add_argument("--commission", type=float, default=DEFAULT_COMMISSION)
+    parser.add_argument("--countries", nargs="+", default=list(defaults.country_codes),
+                        help="Country codes to trade (default GB)")
     parser.add_argument("--steamers-only", action="store_true")
     parser.add_argument("--drifters-only", action="store_true")
     parser.add_argument("--verbose", action="store_true", help="Show every order")
@@ -59,6 +61,7 @@ def main() -> None:
         stop_ticks=args.stop_ticks,
         trade_steamers=not args.drifters_only,
         trade_drifters=not args.steamers_only,
+        country_codes=tuple(args.countries),
     )
     result = run_backtest(find_recordings(args.paths), config, args.commission)
     print(result.summary())

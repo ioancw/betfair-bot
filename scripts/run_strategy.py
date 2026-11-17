@@ -70,6 +70,7 @@ def main() -> None:
         entry_threshold=args.threshold,
         target_ticks=args.target_ticks,
         stop_ticks=args.stop_ticks,
+        country_codes=tuple(args.countries),
     )
     trading = create_trading_client(
         Config.BETFAIR_USERNAME, Config.BETFAIR_PASSWORD, Config.BETFAIR_APP_KEY, Config.CERT_PATH

@@ -74,7 +74,19 @@ and in some races the move reverses. They show the mechanics only.
 | Paper trade | `python scripts/run_strategy.py` | live app key for real-time prices |
 | Real orders | `BETFAIR_LIVE_TRADING=yes python scripts/run_strategy.py --live` | all of the above, and evidence it works |
 
-The backtester also reads Betfair's purchased historical data files directly.
+### Backtesting on Betfair's historical data
+
+Data bought from https://historicdata.betfair.com downloads as a `.tar` of
+`.bz2` files, one per market. Extract the tar and point the backtester at the
+folder; the `.bz2` files are read as they are.
+
+```bash
+mkdir -p data/historic && tar -xf ~/Downloads/data.tar -C data/historic
+python scripts/run_backtest.py data/historic
+```
+
+Only GB WIN markets are traded by default, so place markets and other
+countries in the download are skipped (`--countries GB IE` to widen).
 
 Strategy settings (`--stake`, `--threshold`, `--lookback`, `--target-ticks`,
 `--stop-ticks`) are the same for backtesting and trading; all of them are
