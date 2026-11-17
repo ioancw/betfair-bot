@@ -12,6 +12,9 @@ def restore_config_module():
     """Reload src.config after each test so reloads here don't leak elsewhere."""
     yield
     import src.config as config_module
+    import src.settings as settings_module
+
+    importlib.reload(settings_module)
     try:
         importlib.reload(config_module)
     except EnvironmentError:
@@ -42,9 +45,16 @@ def test_optional_logging_vars_have_defaults(monkeypatch):
         monkeypatch.setenv(name, "value")
     monkeypatch.delenv("LOG_LEVEL", raising=False)
     monkeypatch.delenv("LOG_DIR", raising=False)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("STREAM_DIR", raising=False)
 
+    import src.settings as settings_module
+
+    importlib.reload(settings_module)
     importlib.reload(config_module)
 
+    assert config_module.Config.DATABASE_URL.startswith("postgresql://")
+    assert config_module.Config.STREAM_DIR == "data/streams"
     assert config_module.Config.LOG_LEVEL == "INFO"
     assert config_module.Config.LOG_DIR == "logs"
 
@@ -87,3 +97,19 @@ def test_cert_paths_are_constructed_correctly(monkeypatch, tmp_path):
     assert Config.cert_crt().endswith("client-2048.crt")
     assert Config.cert_key().endswith("client-2048.key")
     assert str(cert_dir) in Config.cert_crt()
+
+
+def test_settings_need_no_credentials(monkeypatch):
+    """src.settings imports and reads overrides with no Betfair variables set."""
+    import src.settings as settings_module
+
+    monkeypatch.setattr("dotenv.load_dotenv", lambda *a, **k: False)
+    for name in REQUIRED_VARS:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("DATABASE_URL", "postgresql://example/db")
+    monkeypatch.setenv("STREAM_DIR", "/recordings")
+
+    importlib.reload(settings_module)
+
+    assert settings_module.Settings.DATABASE_URL == "postgresql://example/db"
+    assert settings_module.Settings.STREAM_DIR == "/recordings"

@@ -1,9 +1,14 @@
 """Shared pytest fixtures for the Betfair bot test suite."""
 
+import os
 import sys
 from pathlib import Path
 
 import pytest
+
+# src.config reads these at import time; give tests harmless defaults
+for _name in ("BETFAIR_USERNAME", "BETFAIR_PASSWORD", "BETFAIR_APP_KEY", "CERT_PATH"):
+    os.environ.setdefault(_name, "test-value")
 
 # Ensure src/ is importable without installing the package
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -44,3 +49,33 @@ def mock_api_client(mock_env):
         cert_path=str(mock_env["cert_dir"]),
     )
     return client
+
+
+@pytest.fixture(autouse=True)
+def quiet_loguru():
+    """Keep loguru output out of the test run and remove sinks tests add."""
+    from loguru import logger
+
+    logger.remove()
+    yield
+    logger.remove()
+
+
+@pytest.fixture
+def sample_race(tmp_path):
+    """A synthetic recording where the steamer and drifter follow through."""
+    from src.sample_data import generate_race
+
+    return str(generate_race(tmp_path / "recordings" / "1.200000001"))
+
+
+@pytest.fixture
+def reversal_race(tmp_path):
+    """A synthetic recording where both moves reverse, so momentum loses."""
+    from src.sample_data import generate_race
+
+    return str(
+        generate_race(
+            tmp_path / "recordings" / "1.200000009", market_id="1.200000009", reversal=True
+        )
+    )

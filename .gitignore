@@ -32,6 +32,8 @@ logs/
 data/*.db
 data/*.sqlite3
 data/*.bz2
+data/streams/
+data/sample/
 
 # IDE
 .idea/

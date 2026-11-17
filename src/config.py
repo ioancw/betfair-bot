@@ -6,6 +6,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from src.constants import CERT_FILENAME, KEY_FILENAME
+from src.settings import Settings
 
 load_dotenv()
 
@@ -26,8 +27,11 @@ class Config:
     BETFAIR_APP_KEY: str = _require("BETFAIR_APP_KEY")
     CERT_PATH: str = _require("CERT_PATH")
 
-    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
-    LOG_DIR: str = os.getenv("LOG_DIR", "logs")
+    # Credential-free settings, shared with src.settings
+    LOG_LEVEL: str = Settings.LOG_LEVEL
+    LOG_DIR: str = Settings.LOG_DIR
+    DATABASE_URL: str = Settings.DATABASE_URL
+    STREAM_DIR: str = Settings.STREAM_DIR
 
     @classmethod
     def cert_crt(cls) -> str:

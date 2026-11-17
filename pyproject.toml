@@ -12,10 +12,11 @@ dependencies = [
     "betfairlightweight>=2.20.0",
     "python-dotenv>=1.0.0",
     "loguru>=0.7.0",
+    "psycopg[binary]>=3.1",
 ]
 
 [tool.setuptools]
-packages = ["src"]
+packages = ["src", "src.strategies"]
 
 [project.optional-dependencies]
 dev = [
